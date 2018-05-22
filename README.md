@@ -46,6 +46,8 @@ make -j4 $*
 
 The kernel module will be eurasia_km/eurasiacon/binary2_omap_linux_release/target/kbuild/pvrsrvkm.ko
 
+Note that the SGX kernel driver needs CONFIG_DRM_LEGACY to be enabled in the kernel.
+
 ## Building
 
 To build and to use DRI3WSEGL you will need the following:
@@ -61,6 +63,12 @@ x11-xcb, xcb, xcb-dri3, xcb-present
 libgbm is not needed when using Dumb buffers. However, applications often depend on it, and DRI3WSEGL can also use GBM buffers (see BO_TYPE variable below). A custom version of libgbm is needed when used with SGX. This libgbm can be found from:
 
 git://git.ti.com/glsdk/libgbm.git test
+
+Unfortunately the custom libgbm builds libgbm.so.2.0.0 in the master branch, instead of libgbm.so.1.0.0 as it should. The SGX userspace libraries have been linked against 2.0.0. In the above 'test' branch I have reverted the versioning change, but you will still need to create a symlink to create libgbm.so.2 for the SGX userspace libs.
+
+```
+ln -s libgbm.so.1.0.0 libgbm.so.2
+```
 
 ### CMake variables
 
