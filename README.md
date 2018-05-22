@@ -28,7 +28,7 @@ The binaries for OMAP5/AM572x/DRA7xx are located under targetfs/jacinto6evm/
 
 SGX kernel driver can be found from:
 
-git://git.ti.com/graphics/omap5-sgx-ddk-linux.git ti-img-sgx/1.14.3699939/k4.9
+git://git.ti.com/graphics/omap5-sgx-ddk-linux.git ti-img-sgx/1.14.3699939/k4.14
 
 You can find some instructions from the eurasia_km/README and eurasia_km/INSTALL files, but here's a script I have been using to compile the module:
 
