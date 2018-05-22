@@ -757,7 +757,7 @@ int main(int argc, char **argv)
 		else if (strcmp(argv[i], "x11") == 0)
 			s_buf_ops = &x11_buf_ops;
 #ifdef HAS_LIBDRM_ETNAVIV
-		else if (strcmp(argv[i], "etna"))
+		else if (strcmp(argv[i], "etna") == 0)
 			s_buf_ops = &etnaviv_buf_ops;
 #endif
 		else {
