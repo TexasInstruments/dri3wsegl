@@ -87,6 +87,7 @@ struct buffer
 	int dmabuf_fd;
 
 	union {
+		uint32_t dumb_handle;
 		struct gbm_bo *gbm_bo;
 #ifdef HAS_LIBDRM_ETNAVIV
 		struct etna_bo *etna_bo;
@@ -251,6 +252,67 @@ static const struct buf_ops gbm_buf_ops = {
 	.create_device = create_gbm_device,
 	.create_pixmap = create_gbm_pixmap,
 	.destroy_pixmap = destroy_gbm_pixmap,
+};
+
+static void create_dumb_device(struct display *display)
+{
+}
+
+static void create_dumb_pixmap(struct buffer *buffer)
+{
+	struct drawable *drawable = buffer->drawable;
+	struct display *display = drawable->display;
+	struct xcb_connection_t *c = display->connection;
+	int r;
+
+	uint32_t width = drawable->width;
+	uint32_t height = drawable->height;
+
+	/* create dumb buffer */
+	struct drm_mode_create_dumb creq = {0};
+	creq.width = width;
+	creq.height = height;
+	creq.bpp = 32;
+	r = drmIoctl(display->drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq);
+	FAIL_IF(r, "DRM_IOCTL_MODE_CREATE_DUMB failed: %s", strerror(errno));
+
+	uint32_t handle = creq.handle;
+	uint32_t stride = creq.pitch;
+
+	int bo_fd;
+	r = drmPrimeHandleToFD(display->drm_fd, handle, DRM_CLOEXEC | O_RDWR, &bo_fd);
+	FAIL_IF(r, "drmPrimeHandleToFD failed");
+
+	xcb_pixmap_t pixmap = xcb_generate_id(c);
+
+	xcb_void_cookie_t pixmap_cookie = xcb_dri3_pixmap_from_buffer_checked(c, pixmap, display->screen->root,
+									      stride * height,
+									      width, height,
+									      stride, 24, 32, bo_fd);
+	xcb_generic_error_t *error;
+	if ((error = xcb_request_check(c, pixmap_cookie))) {
+		FAIL("create pixmap failed");
+	}
+
+	buffer->dmabuf_fd = bo_fd;
+	buffer->dumb_handle = handle;
+	buffer->pixmap = pixmap;
+}
+
+static void destroy_dumb_pixmap(struct buffer *buffer)
+{
+	xcb_free_pixmap(buffer->drawable->display->connection, buffer->pixmap);
+	close(buffer->dmabuf_fd);
+
+	struct drm_mode_destroy_dumb dreq = {0};
+	dreq.handle = buffer->dumb_handle;
+	drmIoctl(buffer->drawable->display->drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
+}
+
+static const struct buf_ops dumb_buf_ops = {
+	.create_device = create_dumb_device,
+	.create_pixmap = create_dumb_pixmap,
+	.destroy_pixmap = destroy_dumb_pixmap,
 };
 
 static void get_x_drawable_data(xcb_connection_t *c, xcb_drawable_t x_drawable, uint32_t *width, uint32_t *height)
@@ -754,6 +816,8 @@ int main(int argc, char **argv)
 			s_import_hack = true;
 		else if (strcmp(argv[i], "gbm") == 0)
 			s_buf_ops = &gbm_buf_ops;
+		else if (strcmp(argv[i], "dumb") == 0)
+			s_buf_ops = &dumb_buf_ops;
 		else if (strcmp(argv[i], "x11") == 0)
 			s_buf_ops = &x11_buf_ops;
 #ifdef HAS_LIBDRM_ETNAVIV
