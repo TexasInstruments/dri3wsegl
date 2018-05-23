@@ -36,6 +36,7 @@ static bool s_no_draw = false;
 static uint32_t s_frame_num;
 static bool s_import_hack;
 static int s_omap_fd;
+static bool s_verbose;
 
 struct buffer;
 struct drawable;
@@ -386,8 +387,6 @@ static int dri3_open(xcb_connection_t *c, xcb_screen_t *screen)
 
 	fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
 
-	printf("DRM FD %d\n", fd);
-
 	return fd;
 }
 
@@ -543,8 +542,9 @@ static void handle_event(struct display *display, xcb_present_generic_event_t *g
 			break;
 		}
 
-		printf("PRESENT COMPLETE NOTIFY %u, %s, msc %llu, ust %llu\n", ce->serial, mode_str,
-		       (unsigned long long)ce->msc, (unsigned long long)ce->ust);
+		if (s_verbose)
+			printf("PRESENT COMPLETE NOTIFY %u, %s, msc %llu, ust %llu\n", ce->serial, mode_str,
+			       (unsigned long long)ce->msc, (unsigned long long)ce->ust);
 
 		drawable->display->current_msc = ce->msc;
 
@@ -555,7 +555,8 @@ static void handle_event(struct display *display, xcb_present_generic_event_t *g
 	case XCB_PRESENT_EVENT_IDLE_NOTIFY: {
 		xcb_present_idle_notify_event_t *ie = (xcb_present_idle_notify_event_t*) ge;
 
-		printf("PRESENT IDLE NOTIFY %u\n", ie->serial);
+		if (s_verbose)
+			printf("PRESENT IDLE NOTIFY %u\n", ie->serial);
 
 		drawable->buffers[ie->serial]->busy = false;
 
@@ -564,7 +565,9 @@ static void handle_event(struct display *display, xcb_present_generic_event_t *g
 
 	case XCB_PRESENT_EVENT_CONFIGURE_NOTIFY: {
 		xcb_present_configure_notify_event_t *ce = (xcb_present_configure_notify_event_t*) ge;
-		printf("PRESENT CONFIGURE NOTIFY %ux%u\n", ce->width, ce->height);
+
+		if (s_verbose)
+			printf("PRESENT CONFIGURE NOTIFY %ux%u\n", ce->width, ce->height);
 
 		drawable->width = ce->width;
 		drawable->height = ce->height;
@@ -576,7 +579,8 @@ static void handle_event(struct display *display, xcb_present_generic_event_t *g
 
 	case XCB_PRESENT_EVENT_REDIRECT_NOTIFY: {
 		xcb_present_redirect_notify_event_t *re = (xcb_present_redirect_notify_event_t*) ge;
-		printf("PRESENT REDIRECT NOTIFY %u\n", re->serial);
+		if (s_verbose)
+			printf("PRESENT REDIRECT NOTIFY %u\n", re->serial);
 
 		break;
 	}
@@ -629,8 +633,8 @@ static struct display *init_display()
 	int drm_fd = dri3_open(c, screen);
 
 	drmVersion* ver = drmGetVersion(drm_fd);
-	printf("driver %s (%s)\n", ver->name, ver->desc);
 
+	printf("DRI3 driver %s (%s), fd %d\n", ver->name, ver->desc, drm_fd);
 
 	uint32_t width;
 	uint32_t height;
@@ -692,7 +696,8 @@ static void present_next(struct drawable *drawable)
 {
 	struct xcb_connection_t *c = drawable->display->connection;
 
-	printf("present %u\n", drawable->current_idx);
+	if (s_verbose)
+		printf("present %u\n", drawable->current_idx);
 
 	uint32_t idx = drawable->current_idx;
 	drawable->current_idx = (drawable->current_idx + 1) % 3;
@@ -805,27 +810,45 @@ static void main_loop(struct display *display)
 
 int main(int argc, char **argv)
 {
-	s_buf_ops = &gbm_buf_ops;
+	int opt;
 
-	for (int i = 1; i < argc; ++i) {
-		if (strcmp(argv[i], "-f") == 0)
-			s_fullscreen = true;
-		else if (strcmp(argv[i], "-d") == 0)
-			s_no_draw = true;
-		else if (strcmp(argv[i], "-i") == 0)
-			s_import_hack = true;
-		else if (strcmp(argv[i], "gbm") == 0)
+	while ((opt = getopt(argc, argv, "fdiv")) != -1) {
+		switch (opt) {
+		case 'f':
+			s_fullscreen = true; break;
+		case 'd':
+			s_no_draw = true; break;
+		case 'i':
+			s_import_hack = true; break;
+		case 'v':
+			s_verbose = true; break;
+		default: /* '?' */
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (argc > optind + 1) {
+		fprintf(stderr, "Too many arguments\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (argc == optind) {
+		s_buf_ops = &gbm_buf_ops;
+	} else {
+		const char* s = argv[optind];
+
+		if (strcmp(s, "gbm") == 0)
 			s_buf_ops = &gbm_buf_ops;
-		else if (strcmp(argv[i], "dumb") == 0)
+		else if (strcmp(s, "dumb") == 0)
 			s_buf_ops = &dumb_buf_ops;
-		else if (strcmp(argv[i], "x11") == 0)
+		else if (strcmp(s, "x11") == 0)
 			s_buf_ops = &x11_buf_ops;
 #ifdef HAS_LIBDRM_ETNAVIV
-		else if (strcmp(argv[i], "etna") == 0)
+		else if (strcmp(s, "etna") == 0)
 			s_buf_ops = &etnaviv_buf_ops;
 #endif
 		else {
-			printf("unknown param %s\n", argv[i]);
+			printf("unknown buffer type %s\n", s);
 			exit(-1);
 		}
 	}
