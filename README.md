@@ -22,6 +22,8 @@ To use the SGX driver you need a kernel that's compatible with the SGX driver an
 
 git://git.ti.com/ti-linux-kernel/ti-linux-kernel.git ti2018.04-rc3-int
 
+The cross compiler I have used is gcc-linaro-7.2.1-2017.11-x86_64_armv8l-linux-gnueabihf
+
 ### SGX Userspace Libraries (UM)
 
 SGX userspace libraries are distributed as binary only. You can get the latest from:
@@ -39,6 +41,8 @@ git://git.ti.com/graphics/omap5-sgx-ddk-linux.git ti-img-sgx/1.14.3699939/k4.14
 You can find some instructions from the eurasia_km/README and eurasia_km/INSTALL files, but here's a script I have been using to compile the module:
 
 ```
+#!/bin/sh
+
 export BUILD=release
 export TARGET_PRODUCT=jacinto6evm
 export ARCH=arm
