@@ -16,6 +16,12 @@ This README mainly covers using DRI3WSEGL with Buildroot environment on OMAP5/AM
 
 ## SGX Driver
 
+The assumption is that you are already familiar with the SGX driver, and preferrably have it running on your system. These notes are not a full guide on SGX drivers, nor is this project about the SGX driver.
+
+To use the SGX driver you need a kernel that's compatible with the SGX driver and the additional DT and hwmod changes for SGX. I have been using TI's v4.14 based kernel:
+
+git://git.ti.com/ti-linux-kernel/ti-linux-kernel.git ti2018.04-rc3-int
+
 ### SGX Userspace Libraries (UM)
 
 SGX userspace libraries are distributed as binary only. You can get the latest from:
