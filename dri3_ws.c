@@ -399,22 +399,17 @@ static void handle_special_event(struct driws_drawable *drawable, xcb_present_ge
 
 		struct driws_buffer *buffer = find_buffer_from_list(ie->pixmap);
 
-		FAIL_IF(!buffer, "no buffer");
-
-		buffer->busy = false;
+		if (buffer)
+			buffer->busy = false;
 
 		break;
 	}
 
 	case XCB_PRESENT_EVENT_CONFIGURE_NOTIFY: {
+		__attribute__((unused))
 		xcb_present_configure_notify_event_t *ce = (xcb_present_configure_notify_event_t*) ge;
 		DBG("XCB_PRESENT_EVENT_CONFIGURE_NOTIFY %ux%u", ce->width, ce->height);
-
-		drawable->width = ce->width;
-		drawable->height = ce->height;
-
-		//create_buffers(drawable);
-
+		drawable->size_changed = true;
 		break;
 	}
 
@@ -820,14 +815,20 @@ static WSEGLError WSEGL_GetDrawableParameters(WSEGLDrawableHandle hDrawable,
 
 	DBG("drawable=%p, current-back=%u", drawable, drawable->current_back_idx);
 
-	if (!create_buffers(drawable)) {
-		if (drawable->drawable_type == DRI3WS_DRAWABLE_WINDOW )
-			return WSEGL_BAD_NATIVE_WINDOW;
-		else
-			return WSEGL_BAD_NATIVE_PIXMAP;
-	}
-
 	struct driws_buffer *buffer = drawable->buffers[drawable->current_back_idx];
+
+	if (buffer && drawable->size_changed)
+		return WSEGL_BAD_DRAWABLE;
+
+	if (!buffer) {
+		if (!create_buffers(drawable)) {
+			if (drawable->drawable_type == DRI3WS_DRAWABLE_WINDOW )
+				return WSEGL_BAD_NATIVE_WINDOW;
+			else
+				return WSEGL_BAD_NATIVE_PIXMAP;
+		}
+		buffer = drawable->buffers[drawable->current_back_idx];
+	}
 
 	while (buffer->busy) {
 		DBG("Buffer busy, waiting");

@@ -103,4 +103,6 @@ struct driws_drawable {
 	enum driws_drawable_type drawable_type;
 
 	xcb_special_event_t* special_ev;
+
+	bool size_changed;
 };
