@@ -191,7 +191,7 @@ static struct driws_buffer *create_buffer(struct driws_drawable *drawable)
 	struct drm_mode_create_dumb creq = { };
 	creq.width = drawable->width;
 	creq.height = drawable->height;
-	creq.bpp = bpp * 8;
+	creq.bpp = bpp;
 	int r = ioctl(display->drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq);
 	FAIL_IF(r, "create dumb failed");
 
