@@ -155,6 +155,11 @@ static const char *format2str(WSEGLPixelFormat format)
 	}
 }
 
+static uint32_t round_up_to(uint32_t x, uint32_t y)
+{
+	return ((x + (y - 1)) / y) * y;
+}
+
 static struct driws_buffer *create_buffer(struct driws_drawable *drawable)
 {
 	struct driws_display *display = drawable->display;
@@ -168,19 +173,21 @@ static struct driws_buffer *create_buffer(struct driws_drawable *drawable)
 
 	uint32_t stride, width, height;
 
+	uint32_t buffer_width = round_up_to(drawable->width, 4);
+
 #ifdef DRI3WS_USE_GBM
 	uint32_t gbm_format = format2gbmformat(drawable->wsegl_pixel_format);
 
 	DBG("BACKEND %s", gbm_device_get_backend_name(display->gbm));
 
-	struct gbm_bo* bo = gbm_bo_create(display->gbm, drawable->width, drawable->height,
+	struct gbm_bo* bo = gbm_bo_create(display->gbm, buffer_width, drawable->height,
 					  gbm_format, GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT);
 	FAIL_IF(!bo, "no bo");
 
 
 	buffer->dmabuf_fd = gbm_bo_get_fd(bo);
 
-	width = gbm_bo_get_width(bo);
+	width = drawable->width;
 	height = gbm_bo_get_height(bo);
 	stride = gbm_bo_get_stride(bo);
 
@@ -189,7 +196,7 @@ static struct driws_buffer *create_buffer(struct driws_drawable *drawable)
 
 #ifdef DRI3WS_USE_DUMB
 	struct drm_mode_create_dumb creq = { };
-	creq.width = drawable->width;
+	creq.width = buffer_width;
 	creq.height = drawable->height;
 	creq.bpp = bpp * 8;
 	int r = ioctl(display->drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq);
