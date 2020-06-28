@@ -299,14 +299,13 @@ static void destroy_buffer(struct driws_buffer *buffer)
 	buffer->pvr_meminfo = NULL;
 
 	close(buffer->dmabuf_fd);
-	buffer->dmabuf_fd = 0;
+	buffer->dmabuf_fd = -1;
 
 #ifdef DRI3WS_USE_GBM
 	gbm_bo_destroy(buffer->gbm_bo);
 #endif
 
 #ifdef DRI3WS_USE_DUMB
-	close(buffer->dmabuf_fd);
 
 	struct drm_mode_destroy_dumb dreq = { 0 };
 	dreq.handle = buffer->drm_handle;
