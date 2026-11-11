@@ -238,12 +238,22 @@ static struct driws_buffer *create_buffer(struct driws_drawable *drawable)
 
 
 	xcb_pixmap_t pixmap = xcb_generate_id(display->xcb_connection);
+
+	/*
+	 * xcb_dri3_pixmap_from_buffer_checked() sends the fd to the X server.
+	 * Keep WSEGL's own dma-buf fd separate: pass a duplicate to XCB and
+	 * retain buffer->dmabuf_fd for PVRSRV and destroy_buffer().
+	 */
+	int xcb_dmabuf_fd = dup(buffer->dmabuf_fd);
+	FAIL_IF(xcb_dmabuf_fd < 0, "dup dma-buf fd %d failed: %s\n",
+		buffer->dmabuf_fd, strerror(errno));
+
 	xcb_void_cookie_t pixmap_cookie = xcb_dri3_pixmap_from_buffer_checked(display->xcb_connection, pixmap,
 									      drawable->xcb_window,
 									      0,
 									      width, height,
 									      stride, depth, bpp,
-									      buffer->dmabuf_fd);
+									      xcb_dmabuf_fd);
 	xcb_generic_error_t *error;
 	if ((error = xcb_request_check(display->xcb_connection, pixmap_cookie))) {
 		FAIL("create pixmap failed");
